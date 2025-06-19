@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.shop.mapper.ProductMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.shop.entity.Product">
+        <id column="id" property="id" />
+        <result column="name" property="name" />
+        <result column="stock" property="stock" />
+        <result column="price" property="price" />
+        <result column="version" property="version" />
+        <result column="description" property="description" />
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap" parameterType="java.lang.Long">
+        SELECT id, name, stock, price, version, description
+        FROM product
+        WHERE id = #{id}
+    </select>
+
+</mapper> 
