@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 
 @Tag(name = "商品管理")
 @RestController
@@ -44,5 +45,14 @@ public class ProductController {
     @PostMapping("/batchImport")
     public boolean batchImport(@RequestBody List<Product> productList) {
         return productService.batchImport(productList);
+    }
+
+    @Operation(summary = "分页条件查询商品")
+    @GetMapping("/page")
+    public IPage<Product> pageQuery(
+            @RequestParam int pageNum,
+            @RequestParam int pageSize,
+            @RequestParam(required = false) String name) {
+        return productService.pageQuery(pageNum, pageSize, name);
     }
 } 

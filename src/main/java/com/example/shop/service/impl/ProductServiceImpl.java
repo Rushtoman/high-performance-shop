@@ -9,6 +9,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.CacheEvict;
 
 @Service
 public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
@@ -19,6 +25,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     private static final String PRODUCT_CACHE_KEY = "product:";
 
     @Override
+    @Cacheable(value = "hotProduct", key = "#id")
     public Product getProductById(Long id) {
         String key = PRODUCT_CACHE_KEY + id;
         String json = redisTemplate.opsForValue().get(key);
@@ -55,6 +62,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     }
 
     @Override
+    @CachePut(value = "hotProduct", key = "#product.id")
     public boolean updateProduct(Product product) {
         boolean result = this.updateById(product);
         if (result) {
@@ -67,6 +75,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     }
 
     @Override
+    @CacheEvict(value = "hotProduct", key = "#id")
     public boolean deleteProduct(Long id) {
         boolean result = this.removeById(id);
         if (result) {
@@ -87,5 +96,14 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             } catch (Exception e) {}
         }
         return result;
+    }
+
+    @Override
+    public IPage<Product> pageQuery(int pageNum, int pageSize, String name) {
+        LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
+        if (name != null && !name.isEmpty()) {
+            wrapper.like(Product::getName, name);
+        }
+        return this.page(new Page<>(pageNum, pageSize), wrapper);
     }
 } 
