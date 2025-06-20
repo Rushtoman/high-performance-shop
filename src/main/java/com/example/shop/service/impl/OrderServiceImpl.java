@@ -12,8 +12,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements OrderService {
@@ -23,6 +25,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     @Transactional
     @Override
@@ -46,8 +51,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Order order = new Order();
         order.setProductId(productId);
         order.setUserId(userId);
-        order.setStatus(0); // 未支付
+        order.setStatus(Order.STATUS_UNPAID); // 未支付
         this.save(order);
+        // 加入Redis延迟队列，30分钟后到期
+        String zsetKey = "order:delay:queue";
+        long expireAt = System.currentTimeMillis() + 30 * 60 * 1000;
+        redisTemplate.opsForZSet().add(zsetKey, order.getId().toString(), expireAt);
         return true;
     }
 
@@ -75,16 +84,20 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         return result;
     }
 
-    @Scheduled(fixedRate = 60000) // 每分钟执行一次
-    public void cancelUnpaidOrders() {
-        LocalDateTime thirtyMinutesAgo = LocalDateTime.now().minusMinutes(30);
-        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Order::getStatus, Order.STATUS_UNPAID)
-               .lt(Order::getCreateTime, thirtyMinutesAgo);
-        
-        List<Order> unpaidOrders = this.list(wrapper);
-        for (Order order : unpaidOrders) {
-            cancelOrder(order.getId());
+    // 定时任务：每5秒轮询一次，处理到期未支付订单
+    @Scheduled(fixedRate = 5000)
+    public void processExpiredOrders() {
+        String zsetKey = "order:delay:queue";
+        long now = System.currentTimeMillis();
+        Set<String> expiredOrderIds = redisTemplate.opsForZSet().rangeByScore(zsetKey, 0, now);
+        if (expiredOrderIds != null && !expiredOrderIds.isEmpty()) {
+            for (String orderIdStr : expiredOrderIds) {
+                Long orderId = Long.valueOf(orderIdStr);
+                // 取消订单
+                cancelOrder(orderId);
+                // 从ZSet移除
+                redisTemplate.opsForZSet().remove(zsetKey, orderIdStr);
+            }
         }
     }
 } 
