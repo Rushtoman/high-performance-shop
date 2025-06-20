@@ -1,6 +1,7 @@
 package com.example.shop.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.shop.entity.Order;
 import com.example.shop.entity.Product;
 import com.example.shop.mapper.OrderMapper;
@@ -10,6 +11,9 @@ import com.example.shop.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements OrderService {
@@ -45,5 +49,42 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         order.setStatus(0); // 未支付
         this.save(order);
         return true;
+    }
+
+    @Override
+    public List<Order> getOrdersByUserId(Long userId) {
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Order::getUserId, userId);
+        return this.list(wrapper);
+    }
+
+    @Override
+    @Transactional
+    public boolean cancelOrder(Long orderId) {
+        Order order = this.getById(orderId);
+        if (order == null || order.getStatus() != Order.STATUS_UNPAID) {
+            return false;
+        }
+        // 更新订单状态为已取消
+        order.setStatus(Order.STATUS_CANCELLED);
+        boolean result = this.updateById(order);
+        if (result) {
+            // 恢复商品库存
+            productMapper.increaseStockById(order.getProductId());
+        }
+        return result;
+    }
+
+    @Scheduled(fixedRate = 60000) // 每分钟执行一次
+    public void cancelUnpaidOrders() {
+        LocalDateTime thirtyMinutesAgo = LocalDateTime.now().minusMinutes(30);
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Order::getStatus, Order.STATUS_UNPAID)
+               .lt(Order::getCreateTime, thirtyMinutesAgo);
+        
+        List<Order> unpaidOrders = this.list(wrapper);
+        for (Order order : unpaidOrders) {
+            cancelOrder(order.getId());
+        }
     }
 } 

@@ -23,4 +23,10 @@
         WHERE id = #{id} AND stock = #{stock} AND version = #{version}
     </update>
 
+    <update id="increaseStockById">
+        UPDATE product
+        SET stock = stock + 1
+        WHERE id = #{id}
+    </update>
+
 </mapper> 

@@ -15,6 +15,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.CacheEvict;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
@@ -41,7 +42,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         if (product != null) {
             try {
                 ObjectMapper mapper = new ObjectMapper();
-                redisTemplate.opsForValue().set(key, mapper.writeValueAsString(product));
+                redisTemplate.opsForValue().set(key, mapper.writeValueAsString(product), 10, TimeUnit.MINUTES);
             } catch (Exception e) {
                 // ignore
             }
@@ -55,7 +56,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         if (result) {
             try {
                 ObjectMapper mapper = new ObjectMapper();
-                redisTemplate.opsForValue().set(PRODUCT_CACHE_KEY + product.getId(), mapper.writeValueAsString(product));
+                redisTemplate.opsForValue().set(PRODUCT_CACHE_KEY + product.getId(), mapper.writeValueAsString(product), 10, TimeUnit.MINUTES);
             } catch (Exception e) {}
         }
         return result;
@@ -68,7 +69,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         if (result) {
             try {
                 ObjectMapper mapper = new ObjectMapper();
-                redisTemplate.opsForValue().set(PRODUCT_CACHE_KEY + product.getId(), mapper.writeValueAsString(product));
+                redisTemplate.opsForValue().set(PRODUCT_CACHE_KEY + product.getId(), mapper.writeValueAsString(product), 10, TimeUnit.MINUTES);
             } catch (Exception e) {}
         }
         return result;
@@ -91,7 +92,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             try {
                 ObjectMapper mapper = new ObjectMapper();
                 for (Product product : productList) {
-                    redisTemplate.opsForValue().set(PRODUCT_CACHE_KEY + product.getId(), mapper.writeValueAsString(product));
+                    redisTemplate.opsForValue().set(PRODUCT_CACHE_KEY + product.getId(), mapper.writeValueAsString(product), 10, TimeUnit.MINUTES);
                 }
             } catch (Exception e) {}
         }
